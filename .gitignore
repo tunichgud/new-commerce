@@ -1,0 +1,15 @@
+.gradle/
+build/
+target/
+*.class
+.env
+data/*.csv
+data/*.zip
+archive.zip
+*.log
+.idea/
+*.iml
+.DS_Store
+data/traces/*.json
+.vscode 
+bin

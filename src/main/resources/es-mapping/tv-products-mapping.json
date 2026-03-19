@@ -1,0 +1,37 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "properties": {
+      "productId":       { "type": "keyword" },
+      "name":            { "type": "text", "fields": { "raw": { "type": "keyword" } } },
+      "brand":           { "type": "keyword" },
+      "screenSizeInch":  { "type": "integer" },
+      "panelType":       { "type": "keyword" },
+      "resolution":      { "type": "keyword" },
+      "priceRaw":        { "type": "keyword" },
+      "priceNumeric":    { "type": "float" },
+      "actualPriceNumeric": { "type": "float" },
+      "ratings":         { "type": "float" },
+      "noOfRatings":     { "type": "integer" },
+      "imageUrl":        { "type": "keyword", "index": false },
+      "productUrl":      { "type": "keyword", "index": false },
+      "subCategory":     { "type": "keyword" },
+      "isSmartTv":       { "type": "boolean" },
+      "descriptionForEmbedding": { "type": "text" },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": 768,
+        "index": true,
+        "similarity": "cosine",
+        "index_options": {
+          "type": "hnsw",
+          "m": 16,
+          "ef_construction": 100
+        }
+      }
+    }
+  }
+}

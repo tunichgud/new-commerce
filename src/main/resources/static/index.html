@@ -1,0 +1,2090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TV Advisor Debug UI</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:           #0d1117;
+    --bg-2:         #161b22;
+    --bg-3:         #21262d;
+    --bg-4:         #30363d;
+    --border:       #30363d;
+    --text:         #e6edf3;
+    --text-muted:   #8b949e;
+    --text-dim:     #484f58;
+
+    --blue:         #388bfd;
+    --blue-dim:     #1f3d6b;
+    --green:        #3fb950;
+    --green-dim:    #1b3a23;
+    --orange:       #d29922;
+    --orange-dim:   #3d2b00;
+    --purple:       #a371f7;
+    --purple-dim:   #2e1b5b;
+    --gold:         #e3b341;
+    --gold-dim:     #3d2f00;
+    --red:          #f85149;
+    --red-dim:      #3d1010;
+
+    --font-mono:    'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --font-ui:      -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+    --radius:       6px;
+    --radius-lg:    10px;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Scrollbar ────────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* ── Layout ───────────────────────────────────────────────────── */
+  #app {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #main-area {
+    flex: 0 0 70%;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    border-right: 1px solid var(--border);
+  }
+
+  #sidebar {
+    flex: 0 0 30%;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Header ───────────────────────────────────────────────────── */
+  #header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+
+  #query-id-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-3);
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    max-width: 340px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+
+  #query-id-badge:hover { color: var(--blue); border-color: var(--blue); }
+
+  /* ── Section Wrappers ─────────────────────────────────────────── */
+  .section {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-header:hover { background: var(--bg-3); }
+
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+
+  .section-body { padding: 14px; }
+  .section-body.hidden { display: none; }
+
+  .chevron {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text-dim);
+    transition: transform 0.15s;
+  }
+
+  .chevron.open { transform: rotate(90deg); }
+
+  /* ── Phases Container ─────────────────────────────────────────── */
+  #phases-container {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* ── Session Divider ──────────────────────────────────────────── */
+  .session-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+
+  .session-divider hr {
+    flex: 1;
+    border: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .session-divider span {
+    white-space: nowrap;
+    font-style: italic;
+  }
+
+  /* ── Phase Blocks ─────────────────────────────────────────────── */
+  .phase-block {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg-2);
+  }
+
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--bg-4);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .phase-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+  }
+
+  .phase-carousel-section {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .phase-carousel-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--blue);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── Phase Tags (query/sort indicators) ───────────────────────── */
+  .phase-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .phase-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    border: 1px solid transparent;
+  }
+
+  .phase-tag.query { background: var(--blue-dim); color: var(--blue); border-color: var(--blue); }
+  .phase-tag.sort  { background: var(--purple-dim); color: var(--purple); border-color: var(--purple); }
+  .phase-tag.new   { background: var(--green-dim); color: var(--green); border-color: var(--green); }
+
+  /* ── Agent Thoughts within Phase ─────────────────────────────── */
+  .phase-agent-section {
+    border-top: 1px solid var(--border);
+  }
+
+  .phase-agent-section.collapsed { display: none; }
+
+  .phase-decider-verdict {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--purple);
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--bg);
+  }
+
+  /* ── Carousels ────────────────────────────────────────────────── */
+  .carousel {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 6px;
+  }
+
+  .carousel::-webkit-scrollbar { height: 4px; }
+
+  /* ── Product Cards ────────────────────────────────────────────── */
+  .product-card {
+    flex: 0 0 200px;
+    scroll-snap-align: start;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+
+  .product-card:hover { border-color: var(--blue); }
+
+  .product-card img {
+    width: 120px;
+    height: 90px;
+    object-fit: contain;
+    align-self: center;
+    border-radius: var(--radius);
+    background: var(--bg-4);
+  }
+
+  .product-img-placeholder {
+    width: 120px;
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    background: var(--bg-4);
+    border-radius: var(--radius);
+    color: var(--text-dim);
+    font-size: 28px;
+  }
+
+  .product-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .product-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .product-meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .product-meta-row .value {
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .product-badge {
+    display: inline-block;
+    background: var(--blue-dim);
+    color: var(--blue);
+    border-radius: 20px;
+    padding: 1px 7px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  .product-price {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  /* NEU badge on product cards */
+  .badge-new {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: var(--green);
+    color: #fff;
+    border-radius: 20px;
+    padding: 1px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    z-index: 1;
+  }
+
+  .btn-consult {
+    margin-top: auto;
+    padding: 5px 10px;
+    background: var(--blue-dim);
+    color: var(--blue);
+    border: 1px solid var(--blue);
+    border-radius: var(--radius);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.15s;
+  }
+
+  .btn-consult:hover { background: var(--blue); color: #fff; }
+
+  /* ── Iteration Blocks inside Phase ───────────────────────────── */
+  .iteration-block {
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .iteration-block:last-child { border-bottom: none; }
+
+  .iteration-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    background: var(--bg-4);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .refined-carousel-section {
+    border-top: 1px solid var(--border);
+    background: var(--bg-2);
+    padding: 10px 12px;
+  }
+
+  .refined-carousel-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--blue);
+    margin-bottom: 8px;
+  }
+
+  /* ── Agent Thoughts ───────────────────────────────────────────── */
+  .agent-subsection {
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .agent-subsection:last-child { margin-bottom: 0; }
+
+  .agent-sub-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--bg-3);
+  }
+
+  .agent-sub-header:hover { background: var(--bg-4); }
+
+  .agent-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+  }
+
+  .agent-label.researcher { color: var(--green); }
+  .agent-label.challenger { color: var(--orange); }
+  .agent-label.decider    { color: var(--purple); }
+
+  .agent-content {
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 32px;
+    background: var(--bg-2);
+  }
+
+  .agent-content.hidden { display: none; }
+
+  /* ── Spinner ──────────────────────────────────────────────────── */
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--bg-4);
+    border-top-color: var(--text-muted);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  .spinner.hidden { display: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Pulsing dot */
+  .pulse-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 1.2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  .pulse-dot.green  { background: var(--green); }
+  .pulse-dot.orange { background: var(--orange); }
+  .pulse-dot.purple { background: var(--purple); }
+  .pulse-dot.blue   { background: var(--blue); }
+  .pulse-dot.hidden { display: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.3; transform: scale(0.7); }
+  }
+
+  /* ── Trace Panel ──────────────────────────────────────────────── */
+  .trace-step {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  .trace-step:last-child { margin-bottom: 0; }
+
+  .trace-step-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    background: var(--bg-3);
+    cursor: pointer;
+    user-select: none;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  .trace-step-header:hover { background: var(--bg-4); }
+
+  .trace-step-name {
+    font-weight: 600;
+    color: var(--blue);
+    min-width: 150px;
+  }
+
+  .trace-step-latency {
+    color: var(--green);
+    min-width: 80px;
+  }
+
+  .trace-step-ts {
+    color: var(--text-dim);
+    font-size: 11px;
+    margin-left: auto;
+  }
+
+  .trace-step-body {
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg);
+    overflow-x: auto;
+    white-space: pre;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .trace-step-body.hidden { display: none; }
+
+  /* ── Error Banner ─────────────────────────────────────────────── */
+  #error-banner {
+    display: none;
+    padding: 10px 14px;
+    background: var(--red-dim);
+    border: 1px solid var(--red);
+    border-radius: var(--radius);
+    color: var(--red);
+    font-size: 13px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  /* ── Sidebar ──────────────────────────────────────────────────── */
+  #sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #sidebar-header h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+  }
+
+  #status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  #status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: background 0.3s;
+  }
+
+  #status-dot.connected  { background: var(--green); }
+  #status-dot.streaming  { background: var(--orange); animation: pulse 1s ease-in-out infinite; }
+  #status-dot.error      { background: var(--red); }
+  #status-dot.complete   { background: var(--blue); }
+
+  #message-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-width: 92%;
+  }
+
+  .msg.user      { align-self: flex-end; align-items: flex-end; }
+  .msg.assistant { align-self: flex-start; align-items: flex-start; }
+  .msg.challenger-question { align-self: flex-start; align-items: flex-start; }
+  .msg.inspire-msg { align-self: flex-start; align-items: flex-start; max-width: 98%; }
+  .msg.system-info  { align-self: center; align-items: center; }
+  .msg.system-abort { align-self: center; align-items: center; }
+
+  .msg-role {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+  }
+
+  .msg-bubble {
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  .msg.user .msg-bubble {
+    background: var(--blue-dim);
+    color: var(--blue);
+    border: 1px solid var(--blue);
+    border-bottom-right-radius: 3px;
+  }
+
+  .msg.assistant .msg-bubble {
+    background: var(--bg-3);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 3px;
+  }
+
+  .msg.challenger-question .msg-bubble {
+    background: var(--orange-dim);
+    color: var(--orange);
+    border: 1px solid var(--orange);
+    border-left: 3px solid var(--orange);
+    border-bottom-left-radius: 3px;
+  }
+
+  .msg.inspire-msg .msg-bubble {
+    background: var(--purple-dim);
+    color: var(--purple);
+    border: 1px solid var(--purple);
+    border-bottom-left-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .msg.system-info .msg-bubble {
+    background: var(--bg-3);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    font-style: italic;
+    font-size: 12px;
+  }
+
+  .msg.system-abort .msg-bubble {
+    background: var(--red-dim);
+    color: var(--red);
+    border: 1px solid var(--red);
+    font-size: 12px;
+  }
+
+  .inspire-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .inspire-btn {
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid;
+    transition: opacity 0.15s;
+  }
+
+  .inspire-btn.yes { background: var(--purple-dim); color: var(--purple); border-color: var(--purple); }
+  .inspire-btn.no  { background: var(--bg-4); color: var(--text-muted); border-color: var(--border); }
+  .inspire-btn:hover { opacity: 0.8; }
+  .inspire-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Chat Input ───────────────────────────────────────────────── */
+  #chat-input-area {
+    flex-shrink: 0;
+    padding: 10px 14px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-2);
+    transition: background 0.2s;
+  }
+
+  #chat-input-area.clarify-mode {
+    background: rgba(61, 43, 0, 0.4);
+    border-top-color: var(--orange);
+  }
+
+  #chat-input-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  #chat-input {
+    flex: 1;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: var(--font-ui);
+    resize: none;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  #chat-input:focus { border-color: var(--blue); }
+  #chat-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  #send-btn {
+    padding: 8px 16px;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    align-self: flex-end;
+  }
+
+  #send-btn:hover:not(:disabled) { opacity: 0.85; }
+  #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #abort-btn {
+    padding: 8px 12px;
+    background: var(--red-dim);
+    color: var(--red);
+    border: 1px solid var(--red);
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    align-self: flex-end;
+    display: none;
+    transition: opacity 0.15s;
+  }
+
+  #abort-btn:hover { opacity: 0.8; }
+
+  /* ── Modal ────────────────────────────────────────────────────── */
+  #modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #modal-overlay.visible { display: flex; }
+
+  #modal {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    width: 640px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  #modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #modal-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  #modal-product-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    max-width: 380px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: var(--radius);
+  }
+
+  #modal-close:hover { background: var(--bg-4); color: var(--text); }
+
+  #modal-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 120px;
+  }
+
+  #modal-answer {
+    padding: 10px 14px;
+    margin: 0 14px 10px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+  }
+
+  #modal-input-area {
+    padding: 10px 14px 14px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #modal-input-row { display: flex; gap: 8px; }
+
+  #modal-input {
+    flex: 1;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: var(--font-ui);
+    outline: none;
+  }
+
+  #modal-input:focus { border-color: var(--blue); }
+  #modal-input:disabled { opacity: 0.5; }
+
+  #modal-send-btn {
+    padding: 8px 14px;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  #modal-send-btn:hover:not(:disabled) { opacity: 0.85; }
+  #modal-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #modal-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    height: 16px;
+  }
+
+  /* ── Utility ──────────────────────────────────────────────────── */
+  .hidden { display: none !important; }
+  .empty-state {
+    color: var(--text-dim);
+    font-size: 12px;
+    font-style: italic;
+    padding: 8px 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══════════════ LEFT: MAIN AREA ═══════════════ -->
+  <div id="main-area">
+
+    <!-- Header -->
+    <div id="header">
+      <h1>TV Advisor Debug UI</h1>
+      <a id="query-id-badge" href="#" target="_blank" rel="noopener">no active query</a>
+    </div>
+
+    <!-- Error Banner -->
+    <div id="error-banner"></div>
+
+    <!-- Dynamic Phase Blocks -->
+    <div id="phases-container">
+      <!-- Phase blocks and session dividers are inserted here dynamically -->
+    </div>
+
+    <!-- Trace Panel -->
+    <div class="section" id="trace-section">
+      <div class="section-header" onclick="toggleSection('trace-body', this)">
+        <span style="color:var(--text-muted); font-size:14px;">&#9783;</span>
+        <span class="section-title">Trace Panel</span>
+        <span id="trace-status" style="font-size:11px; color:var(--text-dim); margin-left:4px;"></span>
+        <span class="chevron">&#9658;</span>
+      </div>
+      <div class="section-body hidden" id="trace-body">
+        <div id="trace-steps">
+          <span class="empty-state">Trace will load after stream completes.</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-area -->
+
+  <!-- ═══════════════ RIGHT: SIDEBAR ═══════════════ -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h2>Chat</h2>
+      <div id="status-indicator">
+        <div id="status-dot"></div>
+        <span id="status-label">idle</span>
+      </div>
+    </div>
+
+    <div id="message-list">
+      <div class="msg assistant">
+        <span class="msg-role">assistant</span>
+        <div class="msg-bubble">
+          Hello! Ask me about TVs and I'll help you find the best option.
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-input-area">
+      <div id="chat-input-row">
+        <textarea id="chat-input" rows="2" placeholder="Ask about a TV…" onkeydown="handleInputKey(event)"></textarea>
+        <button id="send-btn" onclick="sendQuery()">Send</button>
+        <button id="abort-btn" onclick="abortStream()">&#9632; Stop</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ═══════════════ CONSULT MODAL ═══════════════ -->
+<div id="modal-overlay">
+  <div id="modal">
+    <div id="modal-header">
+      <div>
+        <div id="modal-title">Product Consultation</div>
+        <div id="modal-product-label"></div>
+      </div>
+      <button id="modal-close" onclick="closeModal()">&#10005;</button>
+    </div>
+    <div id="modal-messages"></div>
+    <div id="modal-answer"></div>
+    <div id="modal-input-area">
+      <div id="modal-status"></div>
+      <div id="modal-input-row">
+        <input type="text" id="modal-input" placeholder="Ask about this product…"
+               onkeydown="handleModalKey(event)">
+        <button id="modal-send-btn" onclick="sendModalQuery()">Ask</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  'use strict';
+
+  // ── State ──────────────────────────────────────────────────────
+  let currentQueryId      = null;
+  let history             = [];        // [{role, content}]
+  let isStreaming         = false;
+
+  let currentPhase        = -1;        // tracks last created phase index
+  let phaseProductIds     = {};        // { phaseN: Set<productId> } for NEW badge
+  let activeMode          = 'normal';  // 'normal' | 'clarify' | 'inspire'
+  let pendingClarificationQueryId = null;
+  let pendingProductIds   = [];
+  let lastClarificationQuestion = '';
+  let abortController     = null;
+
+  // Modal state
+  let modalProduct    = null;
+  let modalQueryId    = null;
+  let modalHistory    = [];
+  let modalStreaming   = false;
+
+  // Track which iteration blocks have been created per phase (phaseN → Set<iteration>)
+  const phaseIterationBlocks = {};
+
+  // ── Utilities ──────────────────────────────────────────────────
+  function newQueryId() {
+    return crypto.randomUUID();
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function setStatus(state, label) {
+    const dot = document.getElementById('status-dot');
+    const lbl = document.getElementById('status-label');
+    dot.className = state;
+    lbl.textContent = label;
+  }
+
+  function showError(msg) {
+    const banner = document.getElementById('error-banner');
+    banner.textContent = 'Error: ' + msg;
+    banner.style.display = 'block';
+  }
+
+  function clearError() {
+    const banner = document.getElementById('error-banner');
+    banner.style.display = 'none';
+    banner.textContent = '';
+  }
+
+  // ── Section Toggles ───────────────────────────────────────────
+  function toggleSection(bodyId, headerEl) {
+    const body    = document.getElementById(bodyId);
+    const chevron = headerEl.querySelector('.chevron');
+    const hidden  = body.classList.toggle('hidden');
+    if (chevron) chevron.classList.toggle('open', !hidden);
+  }
+
+  function toggleAgentBlock(contentId, headerEl) {
+    const content = document.getElementById(contentId);
+    const chevron = headerEl.querySelector('.chevron');
+    const hidden  = content.classList.toggle('hidden');
+    if (chevron) chevron.classList.toggle('open', !hidden);
+  }
+
+  // ── Trace Panel ────────────────────────────────────────────────
+  function resetTracePanel() {
+    document.getElementById('trace-steps').innerHTML =
+      '<span class="empty-state">Trace will load after stream completes.</span>';
+    document.getElementById('trace-status').textContent = '';
+    // collapse trace panel for new session
+    const traceBody = document.getElementById('trace-body');
+    traceBody.classList.add('hidden');
+    const traceHeader = traceBody.previousElementSibling;
+    if (traceHeader) {
+      const chevron = traceHeader.querySelector('.chevron');
+      if (chevron) chevron.classList.remove('open');
+    }
+  }
+
+  function updateQueryIdBadge(queryId) {
+    const badge = document.getElementById('query-id-badge');
+    badge.textContent = queryId;
+    badge.href = '/api/v1/tv-advisor/trace/' + encodeURIComponent(queryId);
+  }
+
+  // ── Abort Stream ───────────────────────────────────────────────
+  function abortStream() {
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
+    }
+    if (activeMode === 'clarify') {
+      appendMessage('system-abort', 'Clarification skipped.');
+      exitClarifyMode();
+    } else {
+      appendMessage('system-abort', 'Stream aborted.');
+    }
+    showAbortButton(false);
+    hideAllSpinners();
+    setStatus('complete', 'aborted');
+    isStreaming = false;
+    setInputEnabled(true);
+  }
+
+  function showAbortButton(show) {
+    document.getElementById('abort-btn').style.display = show ? 'inline-block' : 'none';
+  }
+
+  // ── Chat Message Append ────────────────────────────────────────
+  function appendMessage(role, content) {
+    const list = document.getElementById('message-list');
+    const div  = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.innerHTML = `
+      <span class="msg-role">${escapeHtml(role)}</span>
+      <div class="msg-bubble">${escapeHtml(content)}</div>
+    `;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+    return div;
+  }
+
+  // ── Session Divider ────────────────────────────────────────────
+  function appendSessionDivider(label) {
+    const container = document.getElementById('phases-container');
+    const divider = document.createElement('div');
+    divider.className = 'session-divider';
+    const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    const text = label || 'Neue Anfrage';
+    divider.innerHTML = `<hr><span>${escapeHtml(text)} &middot; ${escapeHtml(time)}</span><hr>`;
+    container.appendChild(divider);
+  }
+
+  // ── Phase Block Management ─────────────────────────────────────
+  function ensurePhaseBlock(phase) {
+    if (document.getElementById('phase-block-' + phase)) return;
+
+    const container = document.getElementById('phases-container');
+    const block = document.createElement('div');
+    block.className = 'phase-block';
+    block.id = 'phase-block-' + phase;
+
+    block.innerHTML = `
+      <div class="phase-header">
+        <span class="phase-label">&#9654; Phase ${phase}</span>
+        <span class="pulse-dot blue" id="phase-spinner-${phase}"></span>
+      </div>
+      <div class="phase-carousel-section" id="phase-carousel-section-${phase}">
+        <div class="phase-carousel-label">Search Results</div>
+        <div class="phase-tags" id="phase-tags-${phase}"></div>
+        <div class="carousel" id="phase-carousel-${phase}">
+          <span class="empty-state">Loading…</span>
+        </div>
+      </div>
+      <div class="phase-agent-section" id="phase-agents-${phase}">
+        <div id="phase-iterations-${phase}"></div>
+      </div>
+    `;
+
+    container.appendChild(block);
+    phaseIterationBlocks[phase] = new Set();
+    currentPhase = phase;
+  }
+
+  function collapseCompletedPhase(phase) {
+    const agentSection = document.getElementById('phase-agents-' + phase);
+    if (agentSection) agentSection.classList.add('collapsed');
+    const spinner = document.getElementById('phase-spinner-' + phase);
+    if (spinner) spinner.classList.add('hidden');
+  }
+
+  function markNewProducts(phase, products) {
+    const prevIds = phase > 0 ? (phaseProductIds[phase - 1] || new Set()) : new Set();
+    const currentIds = new Set();
+    products.forEach(p => {
+      if (p.productId) currentIds.add(p.productId);
+    });
+    phaseProductIds[phase] = currentIds;
+
+    // Return which products are new
+    return products.map(p => ({
+      ...p,
+      isNew: p.isNew !== undefined ? p.isNew : (!p.productId || !prevIds.has(p.productId))
+    }));
+  }
+
+  // ── Iteration Block inside Phase ───────────────────────────────
+  function ensureIterationBlock(phase, iter) {
+    const key = phase + '_' + iter;
+    if (!phaseIterationBlocks[phase]) phaseIterationBlocks[phase] = new Set();
+    if (phaseIterationBlocks[phase].has(iter)) return;
+    phaseIterationBlocks[phase].add(iter);
+
+    const container = document.getElementById('phase-iterations-' + phase);
+    if (!container) return;
+
+    const block = document.createElement('div');
+    block.className = 'iteration-block';
+    block.id = 'iteration-' + phase + '-' + iter;
+
+    block.innerHTML = `
+      <div class="iteration-label">&#9654; Round ${iter}</div>
+
+      <div style="padding:10px 12px;">
+        <div class="agent-subsection">
+          <div class="agent-sub-header" onclick="toggleAgentBlock('researcher-content-${phase}-${iter}', this)">
+            <span class="pulse-dot green" id="spinner-researcher-${phase}-${iter}"></span>
+            <span class="agent-label researcher">Researcher</span>
+            <span class="chevron open">&#9658;</span>
+          </div>
+          <div class="agent-content" id="researcher-content-${phase}-${iter}"></div>
+        </div>
+
+        <div class="agent-subsection">
+          <div class="agent-sub-header" onclick="toggleAgentBlock('challenger-content-${phase}-${iter}', this)">
+            <span class="pulse-dot orange" id="spinner-challenger-${phase}-${iter}"></span>
+            <span class="agent-label challenger">Challenger</span>
+            <span class="chevron open">&#9658;</span>
+          </div>
+          <div class="agent-content" id="challenger-content-${phase}-${iter}"></div>
+        </div>
+
+        <div class="agent-subsection">
+          <div class="agent-sub-header" onclick="toggleAgentBlock('decider-content-${phase}-${iter}', this)">
+            <span class="pulse-dot purple" id="spinner-decider-${phase}-${iter}"></span>
+            <span class="agent-label decider">Decider</span>
+            <span class="chevron open">&#9658;</span>
+          </div>
+          <div class="agent-content" id="decider-content-${phase}-${iter}"></div>
+        </div>
+      </div>
+
+      <div class="refined-carousel-section hidden" id="refined-section-${phase}-${iter}">
+        <div class="refined-carousel-label">&#9660; Refined Picks &mdash; Round ${iter}</div>
+        <div class="carousel" id="refined-carousel-${phase}-${iter}"></div>
+      </div>
+    `;
+
+    container.appendChild(block);
+  }
+
+  function renderRefinedProducts(phase, iter, products) {
+    const section  = document.getElementById('refined-section-' + phase + '-' + iter);
+    const carousel = document.getElementById('refined-carousel-' + phase + '-' + iter);
+    if (!section || !carousel) return;
+
+    carousel.innerHTML = '';
+    if (!products.length) {
+      carousel.innerHTML = '<span class="empty-state">No refined picks for this round.</span>';
+    } else {
+      products.forEach(p => carousel.appendChild(buildProductCard(p, false)));
+    }
+    section.classList.remove('hidden');
+  }
+
+  // ── Phase Results Rendering ────────────────────────────────────
+  function renderPhaseResults(phase, products, query) {
+    ensurePhaseBlock(phase);
+
+    // Show query as a tag in the phase-tags container
+    if (query) {
+      const tagsEl = document.getElementById('phase-tags-' + phase);
+      if (tagsEl && !tagsEl.querySelector('.phase-tag.query')) {
+        const tag = document.createElement('span');
+        tag.className = 'phase-tag query';
+        tag.textContent = query.length > 80 ? query.slice(0, 80) + '…' : query;
+        tag.title = query;
+        tagsEl.appendChild(tag);
+      }
+    }
+
+    const carousel = document.getElementById('phase-carousel-' + phase);
+    if (!carousel) return;
+
+    carousel.innerHTML = '';
+
+    if (!products.length) {
+      carousel.innerHTML = '<span class="empty-state">No products returned.</span>';
+      return;
+    }
+
+    const tagged = markNewProducts(phase, products);
+    tagged.forEach(p => {
+      const card = buildProductCard(p, p.isNew && phase > 0);
+      carousel.appendChild(card);
+    });
+  }
+
+  // ── Product Card Builder ───────────────────────────────────────
+  function buildProductCard(p, showNewBadge) {
+    const card = document.createElement('div');
+    card.className = 'product-card';
+
+    if (showNewBadge) {
+      const badge = document.createElement('span');
+      badge.className = 'badge-new';
+      badge.textContent = 'NEU';
+      card.appendChild(badge);
+    }
+
+    if (p.imageUrl) {
+      const img = document.createElement('img');
+      img.src   = p.imageUrl;
+      img.alt   = p.name || 'TV';
+      img.onerror = function() { this.replaceWith(makePlaceholder()); };
+      card.appendChild(img);
+    } else {
+      card.appendChild(makePlaceholder());
+    }
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'product-name';
+    nameEl.title     = p.name || '—';
+    nameEl.textContent = p.name || '—';
+    card.appendChild(nameEl);
+
+    const meta = document.createElement('div');
+    meta.className = 'product-meta';
+
+    const fields = [
+      ['Brand',      p.brand      || '—'],
+      ['Size',       p.screenSizeInch ? p.screenSizeInch + '"' : '—'],
+      ['Panel',      p.panelType  || '—'],
+      ['Resolution', p.resolution || '—'],
+      ['Rating',     p.ratings    ? p.ratings.toFixed(1) + ' \u2605' : '—'],
+    ];
+
+    fields.forEach(([label, value]) => {
+      const row = document.createElement('div');
+      row.className = 'product-meta-row';
+      row.innerHTML = `<span>${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span>`;
+      meta.appendChild(row);
+    });
+
+    card.appendChild(meta);
+
+    if (p.priceEur != null) {
+      const price = document.createElement('div');
+      price.className = 'product-price';
+      price.textContent = formatEur(p.priceEur);
+      card.appendChild(price);
+    }
+
+    if (p.score != null && p.score > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'product-badge';
+      badge.textContent = 'RRF ' + Number(p.score).toFixed(4);
+      card.appendChild(badge);
+    }
+
+    const btn = document.createElement('button');
+    btn.className = 'btn-consult';
+    btn.textContent = 'Consult';
+    btn.onclick = () => openModal(p);
+    card.appendChild(btn);
+
+    return card;
+  }
+
+  function makePlaceholder() {
+    const el = document.createElement('div');
+    el.className = 'product-img-placeholder';
+    el.textContent = '\uD83D\uDCFA';
+    return el;
+  }
+
+  function formatEur(value) {
+    return new Intl.NumberFormat('de-DE', {
+      style: 'currency', currency: 'EUR'
+    }).format(value);
+  }
+
+  // ── Clarify Mode ───────────────────────────────────────────────
+  function enterClarifyMode(question, queryId, productIds) {
+    activeMode = 'clarify';
+    pendingClarificationQueryId = queryId;
+    pendingProductIds = productIds || [];
+    lastClarificationQuestion = question;
+
+    appendMessage('challenger-question', question);
+
+    document.getElementById('chat-input-area').classList.add('clarify-mode');
+    document.getElementById('chat-input').placeholder = 'Your answer…';
+    document.getElementById('send-btn').textContent = 'Reply';
+    setInputEnabled(true);
+  }
+
+  function exitClarifyMode() {
+    activeMode = 'normal';
+    pendingClarificationQueryId = null;
+    pendingProductIds = [];
+    lastClarificationQuestion = '';
+    document.getElementById('chat-input-area').classList.remove('clarify-mode');
+    document.getElementById('chat-input').placeholder = 'Ask about a TV\u2026';
+    document.getElementById('send-btn').textContent = 'Send';
+  }
+
+  // ── Inspire Mode ───────────────────────────────────────────────
+  function enterInspireMode(message, queryId) {
+    activeMode = 'inspire';
+
+    const list = document.getElementById('message-list');
+    const div  = document.createElement('div');
+    div.className = 'msg inspire-msg';
+
+    const roleEl = document.createElement('span');
+    roleEl.className = 'msg-role';
+    roleEl.textContent = 'advisor';
+    div.appendChild(roleEl);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+
+    const textEl = document.createElement('span');
+    textEl.textContent = message;
+    bubble.appendChild(textEl);
+
+    const btns = document.createElement('div');
+    btns.className = 'inspire-buttons';
+
+    const yesBtn = document.createElement('button');
+    yesBtn.className = 'inspire-btn yes';
+    yesBtn.textContent = 'Yes, show diverse products';
+    yesBtn.onclick = () => {
+      disableInspireButtons(div);
+      exitInspireMode();
+      sendInspireResponse('yes', queryId);
+    };
+
+    const noBtn = document.createElement('button');
+    noBtn.className = 'inspire-btn no';
+    noBtn.textContent = 'No, I will describe myself';
+    noBtn.onclick = () => {
+      disableInspireButtons(div);
+      exitInspireMode();
+      appendMessage('system-info', 'Inspiration skipped. Feel free to ask a new question!');
+      setInputEnabled(true);
+    };
+
+    btns.appendChild(yesBtn);
+    btns.appendChild(noBtn);
+    bubble.appendChild(btns);
+    div.appendChild(bubble);
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+
+    setInputEnabled(false);
+  }
+
+  function disableInspireButtons(msgDiv) {
+    msgDiv.querySelectorAll('.inspire-btn').forEach(b => b.disabled = true);
+  }
+
+  function exitInspireMode() {
+    activeMode = 'normal';
+  }
+
+  async function sendInspireResponse(response, origQueryId) {
+    if (response !== 'yes') return;
+
+    const newQid = newQueryId();
+    currentQueryId = newQid;
+    updateQueryIdBadge(newQid);
+    appendMessage('user', '(Show me diverse products)');
+
+    const payload = {
+      query: 'inspiration_response',
+      queryId: newQid,
+      parentQueryId: origQueryId,
+      previousProductIds: null,
+      history: []
+    };
+
+    isStreaming = true;
+    setStatus('streaming', 'streaming');
+    setInputEnabled(false);
+    showAbortButton(true);
+
+    await runSseStream(payload);
+  }
+
+  // ── SSE Event Handlers ─────────────────────────────────────────
+  function handleEvent(eventName, data) {
+    switch (eventName) {
+
+      case 'query_accepted': {
+        if (data.queryId) {
+          currentQueryId = data.queryId;
+          updateQueryIdBadge(data.queryId);
+        }
+        setStatus('connected', 'connected');
+        break;
+      }
+
+      case 'router_decision': {
+        const action  = (data.action || '').toLowerCase();
+        const message = data.message || '';
+        if (action === 'proceed' || action === 'new_search') {
+          setStatus('streaming', 'streaming');
+        } else if (action === 'decline') {
+          appendMessage('assistant', message || 'Sorry, I cannot help with that.');
+          setInputEnabled(false);
+          setTimeout(() => setInputEnabled(true), 3000);
+          setStatus('complete', 'declined');
+        }
+        break;
+      }
+
+      case 'phase_results': {
+        const phase = data.phase != null ? data.phase : 0;
+        renderPhaseResults(phase, data.products || [], data.query || '');
+        setStatus('streaming', 'streaming');
+        break;
+      }
+
+      case 'researcher_findings': {
+        const iter  = data.iteration || 1;
+        const phase = currentPhase >= 0 ? currentPhase : 0;
+        ensureIterationBlock(phase, iter);
+        const el = document.getElementById('researcher-content-' + phase + '-' + iter);
+        if (el) el.textContent = data.findings || '';
+        const spinner = document.getElementById('spinner-researcher-' + phase + '-' + iter);
+        if (spinner) spinner.classList.toggle('hidden', !data.partial);
+        break;
+      }
+
+      case 'challenger_feedback': {
+        const iter  = data.iteration || 1;
+        const phase = currentPhase >= 0 ? currentPhase : 0;
+        ensureIterationBlock(phase, iter);
+        const el = document.getElementById('challenger-content-' + phase + '-' + iter);
+        if (el) el.textContent = data.feedback || '';
+        const spinner = document.getElementById('spinner-challenger-' + phase + '-' + iter);
+        if (spinner) spinner.classList.toggle('hidden', !data.partial);
+        break;
+      }
+
+      case 'decider_verdict': {
+        const iter  = data.iteration || 1;
+        const phase = currentPhase >= 0 ? currentPhase : 0;
+        ensureIterationBlock(phase, iter);
+        const el = document.getElementById('decider-content-' + phase + '-' + iter);
+        if (el) el.textContent = data.verdict || '';
+        const spinner = document.getElementById('spinner-decider-' + phase + '-' + iter);
+        if (spinner) spinner.classList.toggle('hidden', !data.partial);
+        break;
+      }
+
+      case 'products_refined': {
+        const iter  = data.iteration || 1;
+        const phase = currentPhase >= 0 ? currentPhase : 0;
+        ensureIterationBlock(phase, iter);
+        renderRefinedProducts(phase, iter, data.products || []);
+        break;
+      }
+
+      case 'pending_clarification': {
+        hideAllSpinners();
+        const question  = data.question || 'Can you clarify?';
+        const queryId   = data.queryId || currentQueryId;
+        const productIds = data.previousProductIds || [];
+        enterClarifyMode(question, queryId, productIds);
+        setStatus('complete', 'awaiting reply');
+        isStreaming = false;
+        showAbortButton(false);
+        break;
+      }
+
+      case 'inspire_question': {
+        hideAllSpinners();
+        const message = data.message || 'Would you like to see diverse product suggestions?';
+        const queryId = data.queryId || currentQueryId;
+        enterInspireMode(message, queryId);
+        setStatus('complete', 'awaiting choice');
+        isStreaming = false;
+        showAbortButton(false);
+        break;
+      }
+
+      case 'stream_complete': {
+        hideAllSpinners();
+        collapseCompletedPhase(currentPhase);
+        setStatus('complete', 'complete');
+        isStreaming = false;
+        setInputEnabled(true);
+        showAbortButton(false);
+
+        if (currentQueryId) {
+          loadTrace(currentQueryId);
+        }
+        break;
+      }
+
+      case 'error': {
+        const msg = data.message || 'Unknown error';
+        showError(msg);
+        hideAllSpinners();
+        setStatus('error', 'error');
+        isStreaming = false;
+        setInputEnabled(true);
+        showAbortButton(false);
+        break;
+      }
+
+      default:
+        console.debug('[SSE] unhandled event:', eventName, data);
+    }
+  }
+
+  function hideAllSpinners() {
+    document.querySelectorAll('.pulse-dot').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.spinner').forEach(el => el.classList.add('hidden'));
+  }
+
+  // ── Trace Loading ──────────────────────────────────────────────
+  async function loadTrace(queryId) {
+    const statusEl = document.getElementById('trace-status');
+    statusEl.textContent = 'loading\u2026';
+
+    try {
+      const res = await fetch('/api/v1/tv-advisor/trace/' + encodeURIComponent(queryId));
+      if (!res.ok) {
+        statusEl.textContent = 'not found (' + res.status + ')';
+        return;
+      }
+      const trace = await res.json();
+      renderTrace(trace);
+      statusEl.textContent = '';
+    } catch (err) {
+      statusEl.textContent = 'load error: ' + err.message;
+      console.error('[trace] load failed:', err);
+    }
+  }
+
+  function renderTrace(trace) {
+    const container = document.getElementById('trace-steps');
+    container.innerHTML = '';
+
+    const steps = trace.steps || [];
+    if (!steps.length) {
+      container.innerHTML = '<span class="empty-state">No steps recorded.</span>';
+      return;
+    }
+
+    steps.forEach((step, idx) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'trace-step';
+
+      const ts = step.timestamp
+        ? new Date(step.timestamp).toLocaleTimeString('en-GB', { hour12: false })
+        : '\u2014';
+
+      const header = document.createElement('div');
+      header.className = 'trace-step-header';
+      header.innerHTML = `
+        <span class="trace-step-name">${escapeHtml(step.name || 'step_' + idx)}</span>
+        <span class="trace-step-latency">${step.latencyMs != null ? step.latencyMs + ' ms' : '\u2014'}</span>
+        <span class="trace-step-ts">${ts}</span>
+      `;
+
+      const body = document.createElement('div');
+      body.className = 'trace-step-body hidden';
+      body.textContent = JSON.stringify(step.data, null, 2);
+
+      header.onclick = () => body.classList.toggle('hidden');
+
+      wrapper.appendChild(header);
+      wrapper.appendChild(body);
+      container.appendChild(wrapper);
+    });
+  }
+
+  // ── SSE Stream Consumer ────────────────────────────────────────
+  async function consumeSseStream(reader) {
+    const decoder = new TextDecoder();
+    let buffer    = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split(/\n\n/);
+      buffer = events.pop();
+
+      for (const rawEvent of events) {
+        if (!rawEvent.trim()) continue;
+        parseAndDispatchSseEvent(rawEvent);
+      }
+    }
+
+    if (buffer.trim()) {
+      parseAndDispatchSseEvent(buffer);
+    }
+  }
+
+  function parseAndDispatchSseEvent(rawEvent) {
+    let eventName = 'message';
+    let dataLines = [];
+
+    for (const line of rawEvent.split('\n')) {
+      if (line.startsWith('event:')) {
+        eventName = line.slice(6).trim();
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice(5).trim());
+      }
+    }
+
+    const dataStr = dataLines.join('\n');
+    if (!dataStr) return;
+
+    let data;
+    try {
+      data = JSON.parse(dataStr);
+    } catch (e) {
+      console.warn('[SSE] JSON parse error for event', eventName, ':', e.message, dataStr);
+      return;
+    }
+
+    handleEvent(eventName, data);
+  }
+
+  // ── Core SSE Runner ────────────────────────────────────────────
+  async function runSseStream(payload) {
+    abortController = new AbortController();
+
+    try {
+      const response = await fetch('/api/v1/tv-advisor/query', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+        signal:  abortController.signal
+      });
+
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status + ' ' + response.statusText);
+      }
+
+      await consumeSseStream(response.body.getReader());
+
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        console.info('[fetch] stream aborted by user.');
+        return;
+      }
+      showError(err.message);
+      setStatus('error', 'error');
+      hideAllSpinners();
+      isStreaming = false;
+      setInputEnabled(true);
+      showAbortButton(false);
+      console.error('[fetch] error:', err);
+    }
+  }
+
+  // ── Send Query ─────────────────────────────────────────────────
+  async function sendQuery() {
+    const input = document.getElementById('chat-input');
+    const query = input.value.trim();
+    if (!query || isStreaming) return;
+
+    input.value = '';
+    clearError();
+
+    let payload;
+
+    if (activeMode === 'clarify') {
+      // Answer to challenger clarification question — treated as a refined new search
+      history.push({ role: 'assistant', content: lastClarificationQuestion });
+      history.push({ role: 'user', content: query });
+
+      // Start fresh phase block after clarification (like a new session)
+      if (currentPhase >= 0) appendSessionDivider('Verfeinerte Suche');
+      currentPhase = -1;
+      phaseProductIds = {};
+      Object.keys(phaseIterationBlocks).forEach(k => delete phaseIterationBlocks[k]);
+
+      const refinedQid = newQueryId();
+      currentQueryId = refinedQid;
+      updateQueryIdBadge(refinedQid);
+
+      payload = {
+        query,
+        queryId: refinedQid,
+        parentQueryId: pendingClarificationQueryId,
+        previousProductIds: null,
+        history: history.slice(0, -1)   // original query + clarification question for Router context
+      };
+
+      appendMessage('user', query);
+      exitClarifyMode();
+      resetTracePanel();
+
+    } else {
+      // New search
+      if (currentPhase >= 0) {
+        appendSessionDivider();
+      }
+
+      currentPhase = -1;
+      phaseProductIds = {};
+      phaseIterationBlocks[0] && Object.keys(phaseIterationBlocks).forEach(k => delete phaseIterationBlocks[k]);
+
+      const qid = newQueryId();
+      currentQueryId = qid;
+      updateQueryIdBadge(qid);
+
+      history = [{ role: 'user', content: query }];
+
+      payload = {
+        query,
+        queryId: qid,
+        parentQueryId: null,
+        previousProductIds: null,
+        history: []
+      };
+
+      appendMessage('user', query);
+      resetTracePanel();
+    }
+
+    isStreaming = true;
+    setStatus('streaming', 'streaming');
+    setInputEnabled(false);
+    showAbortButton(true);
+
+    await runSseStream(payload);
+  }
+
+  function setInputEnabled(enabled) {
+    const input = document.getElementById('chat-input');
+    const btn   = document.getElementById('send-btn');
+    input.disabled = !enabled;
+    btn.disabled   = !enabled;
+  }
+
+  function handleInputKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendQuery();
+    }
+  }
+
+  // ── Consult Modal ──────────────────────────────────────────────
+  function openModal(product) {
+    modalProduct  = product;
+    modalQueryId  = null;
+    modalHistory  = [];
+    modalStreaming = false;
+
+    const label = [product.name, product.brand].filter(Boolean).join(' \u00B7 ');
+    document.getElementById('modal-product-label').textContent = label;
+    document.getElementById('modal-messages').innerHTML = '';
+    document.getElementById('modal-answer').style.display = 'none';
+    document.getElementById('modal-answer').textContent = '';
+    document.getElementById('modal-status').textContent = '';
+    document.getElementById('modal-input').value = '';
+    document.getElementById('modal-input').disabled = false;
+    document.getElementById('modal-send-btn').disabled = false;
+
+    document.getElementById('modal-overlay').classList.add('visible');
+    document.getElementById('modal-input').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('visible');
+    modalProduct = null;
+  }
+
+  document.getElementById('modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  function appendModalMessage(role, content) {
+    const list = document.getElementById('modal-messages');
+    const div  = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.innerHTML = `
+      <span class="msg-role">${escapeHtml(role)}</span>
+      <div class="msg-bubble">${escapeHtml(content)}</div>
+    `;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function handleModalKey(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendModalQuery();
+    }
+  }
+
+  async function sendModalQuery() {
+    const input = document.getElementById('modal-input');
+    const query = input.value.trim();
+    if (!query || modalStreaming) return;
+
+    input.value    = '';
+    modalStreaming  = true;
+    modalQueryId   = newQueryId();
+
+    const answerEl  = document.getElementById('modal-answer');
+    const statusEl  = document.getElementById('modal-status');
+    const inputEl   = document.getElementById('modal-input');
+    const sendBtn   = document.getElementById('modal-send-btn');
+
+    appendModalMessage('user', query);
+    modalHistory.push({ role: 'user', content: query });
+
+    answerEl.style.display = 'block';
+    answerEl.textContent   = '';
+    statusEl.textContent   = 'Streaming\u2026';
+    inputEl.disabled       = true;
+    sendBtn.disabled       = true;
+
+    const productCtx    = buildProductContext(modalProduct);
+    const enrichedQuery = productCtx
+      ? `Regarding this product: ${productCtx}\n\nQuestion: ${query}`
+      : query;
+
+    const payload = {
+      query:         enrichedQuery,
+      queryId:       modalQueryId,
+      parentQueryId: currentQueryId,
+      previousProductIds: null,
+      history:       modalHistory.slice(0, -1)
+    };
+
+    try {
+      const response = await fetch('/api/v1/tv-advisor/query', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+
+      await consumeModalSseStream(response.body.getReader(), answerEl, statusEl);
+
+    } catch (err) {
+      answerEl.textContent = 'Error: ' + err.message;
+      statusEl.textContent = 'error';
+      console.error('[modal] fetch error:', err);
+    } finally {
+      modalStreaming    = false;
+      inputEl.disabled = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+  }
+
+  function buildProductContext(p) {
+    if (!p) return '';
+    const parts = [];
+    if (p.name)           parts.push(p.name);
+    if (p.brand)          parts.push('Brand: ' + p.brand);
+    if (p.screenSizeInch) parts.push('Size: ' + p.screenSizeInch + '"');
+    if (p.panelType)      parts.push('Panel: ' + p.panelType);
+    if (p.resolution)     parts.push('Resolution: ' + p.resolution);
+    if (p.priceEur != null) parts.push('Price: ' + formatEur(p.priceEur));
+    return parts.join(', ');
+  }
+
+  async function consumeModalSseStream(reader, answerEl, statusEl) {
+    const decoder = new TextDecoder();
+    let buffer    = '';
+    let finalText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split(/\n\n/);
+      buffer = events.pop();
+
+      for (const rawEvent of events) {
+        if (!rawEvent.trim()) continue;
+        const parsed = parseModalSseEvent(rawEvent);
+        if (!parsed) continue;
+
+        const { eventName, data } = parsed;
+
+        if (eventName === 'decider_verdict') {
+          if (!data.partial) {
+            finalText = data.verdict || '';
+            answerEl.textContent = finalText;
+          } else {
+            answerEl.textContent = data.verdict || '';
+          }
+        } else if (eventName === 'router_decision') {
+          const action = (data.action || '').toLowerCase();
+          if (action === 'decline') {
+            answerEl.textContent = data.message || '';
+          }
+        } else if (eventName === 'stream_complete') {
+          statusEl.textContent = 'Done';
+          if (answerEl.textContent && answerEl.textContent.trim()) {
+            finalText = answerEl.textContent.trim();
+            appendModalMessage('assistant', finalText);
+            modalHistory.push({ role: 'assistant', content: finalText });
+            answerEl.style.display = 'none';
+            answerEl.textContent   = '';
+          }
+        } else if (eventName === 'error') {
+          answerEl.textContent = 'Error: ' + (data.message || 'unknown');
+          statusEl.textContent = 'error';
+        }
+      }
+    }
+
+    if (buffer.trim()) {
+      const parsed = parseModalSseEvent(buffer);
+      if (parsed && parsed.eventName === 'decider_verdict' && !parsed.data.partial) {
+        answerEl.textContent = parsed.data.verdict || '';
+      }
+    }
+  }
+
+  function parseModalSseEvent(rawEvent) {
+    let eventName = 'message';
+    let dataLines = [];
+
+    for (const line of rawEvent.split('\n')) {
+      if (line.startsWith('event:')) {
+        eventName = line.slice(6).trim();
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice(5).trim());
+      }
+    }
+
+    const dataStr = dataLines.join('\n');
+    if (!dataStr) return null;
+
+    try {
+      return { eventName, data: JSON.parse(dataStr) };
+    } catch (e) {
+      console.warn('[modal SSE] parse error:', e.message);
+      return null;
+    }
+  }
+
+  // ── Init ───────────────────────────────────────────────────────
+  document.getElementById('chat-input').focus();
+</script>
+</body>
+</html>
